@@ -36,20 +36,6 @@ union my_address
     struct sockaddr addr;
 };
 
-
-/*static int parse_sockaddr_from_string(struct sockaddr_in *saddr, char *ip)
-{
-  uint8_t *addr = (uint8_t *)&saddr->sin_addr.s_addr;
-  size_t buflen = strlen(ip);
-
-  if (buflen > INET_ADDRSTRLEN)
-    return -EINVAL;
-  if (in4_pton(ip, buflen, addr, '\0', NULL) == 0)
-    return -EINVAL;
-  saddr->sin_family = AF_INET;
-  return 0;
-}*/
-
 int main(int argc, char *argv[])
 {
     struct pdata server_pdata;
@@ -90,47 +76,17 @@ int main(int argc, char *argv[])
         printf("rdma_create_id failed!\n");
         return err;
     }
-    /*n = getaddrinfo(argv[1], "20079", &hints, &res);
-    if (n < 0)
-    {
-        printf("getaddrinfo failed!\n");
-        return 1;
-    }*/
-
-    /* Resolve server address and route */
-    /*for (t = res; t; t = t->ai_next)
-    {
-        err = rdma_resolve_addr(cm_id, NULL, t->ai_addr, RESOLVE_TIMEOUT_MS);
-        if (!err)
-            break;
-    }
-    if (err)
-    {
-        printf("rdma_resolve_addr failed!\n");
-        return err;
-    }*/
-    //union my_address cli_addr;
-    //union my_address srv_addr;
 	struct sockaddr_in cli_addr;
 	struct sockaddr_in srv_addr;
     char *cli_ip = argv[1];
     char *srv_ip = argv[2];
     long srv_port = strtol(argv[3], NULL, 10);
-    //err = parse_sockaddr_from_string(&cli_addr, cli_ip);
     cli_addr.sin_addr.s_addr = inet_addr(cli_ip);
 	cli_addr.sin_family = AF_INET;
     srv_addr.sin_addr.s_addr = inet_addr(srv_ip);
 	srv_addr.sin_family = AF_INET;
-    /*if (err) {
-        printf("parse client addr %s failed\n", cli_ip);
-        return err;
-    }
-    err = parse_sockaddr_from_string(&srv_addr, srv_ip);
-    if (err) {
-        printf("parse server addr %s failed\n", cli_ip);
-        return err;
-    }*/
     srv_addr.sin_port = htons(srv_port);
+    
     printf("server port input is %s, long value is %d, sin_port:%d\n",argv[3], srv_port, srv_addr.sin_port);
     err  = rdma_resolve_addr(cm_id, &cli_addr, &srv_addr, RESOLVE_TIMEOUT_MS);
     if (err) {
