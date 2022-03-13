@@ -159,7 +159,7 @@ int main(int argc, char   *argv[ ])
 			send_wr.num_sge  = 1;
 			send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
 			send_wr.wr.rdma.remote_addr = ntohll(server_pdata.buf_va);
-			if (ibv post send(cm id->qp, &send_wr,  &bad_send_wr))
+			if (ibv_post_send(cm id->qp, &send_wr,  &bad_send_wr))
 					return 1;
 			sge.addr    = (uintptr_t) buf + sizeof (uint32_t);
 			sge.length  = sizeof (uint32_t);
@@ -188,5 +188,3 @@ int main(int argc, char   *argv[ ])
     }
     return 0;
   }
-Parent topic: An example using RDMA_CM module
-[ Feedback ]
