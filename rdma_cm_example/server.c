@@ -47,50 +47,80 @@ int main(int argc, char   *argv[ ])
 
          /* Set up RDMA CM structures */ 
         cm_channel = rdma_create_event_channel();                            
-        if (!cm_channel) 
-                 return 1; 
+        if (!cm_channel) {
+                 printf("cm_channel init failed!\n");
+                 return 1;
+        } 
         err = rdma_create_id(cm_channel,&listen_id, NULL, RDMA_PS_TCP);
-        if (err)
+        if (err){
+            printf("rdma_create_id  failed!\n");
                  return err;
+        }
         sin.sin_family = AF_INET;
         sin.sin_port     = htons(20079);
         sin.sin_addr.s_addr = INADDR_ANY;
          /* Bind to local port and listen for connection request */
         err = rdma_bind_addr(listen_id, (struct sockaddr   *) &sin);
-        if (err)
-               return 1;
+        if (err){
+            printf("rdma_bind_addr failed! port:%s\n", sin.sin_port);
+                 return err;
+        }
         err = rdma_listen(listen_id,  1);
-        if (err)
-               return 1;
+        if (err){
+            printf("rdma_listen failed! \n");
+                 return err;
+        }
         err = rdma_get_cm_event(cm_channel, &event);
-        if (err)
-               return err;
-        if (event->event != RDMA_CM_EVENT_CONNECT_REQUEST)
-               return 1;
+        if (err){
+            printf("rdma_get_cm_event failed! \n");
+                 return err;
+        }
+        if (event->event != RDMA_CM_EVENT_CONNECT_REQUEST){
+                printf("event from client is not RDMA_CM_EVENT_CONNECT_REQUEST \n");
+                return 1;
+        }
+            
         cm_id = event->id;
         rdma_ack_cm_event(event);
 
         /* Create verbs objects now that we know which device to use */
         pd = ibv_alloc_pd(cm_id->verbs);
-        if (!pd)
-                return 1;
+        if (!pd) {
+            printf("ibv_alloc_pd failed\n");
+            return 1;
+        }
+            
         comp_chan = ibv_create_comp_channel(cm_id->verbs);
-        if (!comp_chan)
-                return 1;
+        if (!comp_chan) {
+            printf("ibv_create_comp_channel failed!\n");
+            return 1;
+        }
+         
         cq = ibv_create_cq(cm_id->verbs,   2,    NULL, comp_chan, 0);
-        if (!cq)
-                return 1;
-        if (ibv_req_notify_cq(cq, 0))
-                return 1;
+        if (!cq){
+            printf("ibv_create_cq failed\n");
+            return 1;
+        }
+            
+        if (ibv_req_notify_cq(cq, 0)){
+            printf("ibv_req_notify_cq faild!\n");
+            return 1;
+        }
         buf = calloc(2, sizeof (uint32_t));
-        if (!buf)
-                return 1;
+        if (!buf) {
+            printf("calloc faild!\n");
+            return 1;
+        }
+            
         mr = ibv_reg_mr(pd, buf, 2 * sizeof (uint32_t),
                     IBV_ACCESS_LOCAL_WRITE |
                     IBV_ACCESS_REMOTE_READ |
                     IBV_ACCESS_REMOTE_WRITE);
-        if (!mr)
-                 return 1;
+        if (!mr){
+            printf("ibv_reg_mr failed\n");
+            return 1;
+        }
+            
 
       qp_attr.cap.max_send_wr = 1; 
       qp_attr.cap.max_send_sge = 1; 
@@ -101,8 +131,11 @@ int main(int argc, char   *argv[ ])
       qp_attr.qp_type = IBV_QPT_RC; 
                                                            
       err = rdma_create_qp(cm_id, pd, &qp_attr);
-      if (err)
-            return err;
+      if (err){
+          printf("rdma_create_qp failed\n");
+          return err;
+      }
+            
 
        /* Post receive before accepting connection */
        sge.addr    = (uintptr_t) buf + sizeof (uint32_t);
@@ -110,9 +143,11 @@ int main(int argc, char   *argv[ ])
        sge.lkey    = mr->lkey;
        recv_wr.sg_list =  &sge;
        recv_wr.num_sge    = 1;
-       if (ibv_post_recv(cm_id->qp, &recv_wr,  &bad_recv_wr))
-             return 1;
-		//FIXME:should be htonl?
+       if (ibv_post_recv(cm_id->qp, &recv_wr,  &bad_recv_wr)){
+           printf("ibv_post_recv failed\n");
+            return 1;
+       }
+           //FIXME:should be htonl?
        rep_pdata.buf_va = htonl((uintptr_t) buf);
        rep_pdata.buf_rkey = htonl(mr->rkey);
        conn_param.responder_resources = 1;
@@ -121,25 +156,44 @@ int main(int argc, char   *argv[ ])
 
        /* Accept connection */
        err = rdma_accept(cm_id,     &conn_param);
-       if (err)
-               return 1;
+       if (err){
+          printf("rdma_accept failed\n");
+          return 1;
+       }
        err = rdma_get_cm_event(cm_channel, &event);
-       if (err)
-                return err;
-       if (event->event != RDMA_CM_EVENT_ESTABLISHED)
-              return 1;
+       if (err) {
+           printf("rdma_get_cm_event failed\n");
+            return err;
+       }
+           
+       if (event->event != RDMA_CM_EVENT_ESTABLISHED){
+           printf("rdma_get_cm_event failed\n");
+           return 1;
+       }
+              
        rdma_ack_cm_event(event);
 
         /* Wait for receive completion */
-       if (ibv_get_cq_event(comp_chan,  &evt_cq, &cq_context))
-             return 1;
-       if (ibv_req_notify_cq(cq,  0))
-             return 1;
-       if (ibv_poll_cq(cq, 1, &wc)    < 1)
-             return 1;
-       if (wc.status != IBV_WC_SUCCESS)
-             return 1;
-
+       if (ibv_get_cq_event(comp_chan,  &evt_cq, &cq_context)){
+           printf("ibv_get_cq_event failed\n");
+            return 1;
+       }
+           
+       if (ibv_req_notify_cq(cq,  0)){
+           printf("ibv_req_notify_cq failed\n");
+            return 1;
+       }
+           
+       if (ibv_poll_cq(cq, 1, &wc)    < 1){
+           printf("ibv_poll_cq failed\n");
+            return 1;
+       }
+           
+       if (wc.status != IBV_WC_SUCCESS){
+         printf("wc.status is not  IBV_WC_SUCCESS\n");
+         return 1;
+       }
+             
       /* Add two integers and send reply back */ 
        buf[0]  = htonl(ntohl(buf[0])  +  ntohl(buf[1])); 
        sge.addr    = (uintptr_t) buf; 
@@ -150,16 +204,28 @@ int main(int argc, char   *argv[ ])
        send_wr.send_flags = IBV_SEND_SIGNALED; 
        send_wr.sg_list    = &sge;
        send_wr.num_sge = 1;
-       if (ibv_post_send(cm_id->qp, &send_wr, &bad_send_wr))
-             return 1;
+       if (ibv_post_send(cm id->qp,     &send_wr, &bad_send_wr)){
+           printf("ibv_post_send  failed\n");
+            return 1;
+       }
 
         /* Wait for send completion */
-        if (ibv_get_cq_event(comp_chan,     &evt_cq, &cq_context))
-             return 1;
-        if (ibv_poll_cq(cq, 1, &wc)    < 1)
-             return 1;
-        if (wc.status != IBV_WC_SUCCESS)
-             return 1;
+        if (ibv_get_cq_event(comp_chan,     &evt_cq, &cq_context)){
+            printf("ibv_get_cq_event  failed\n");
+            return 1;
+        }
+            
+        if (ibv_poll_cq(cq, 1, &wc)    < 1){
+            printf("ibv_poll_cq 2  failed\n");
+            return 1;             
+        }
+             
+        if (wc.status != IBV_WC_SUCCESS){
+            printf("wc.status2 is not IBV_WC_SUCCESS\n");
+            return 1;
+        }
+            
         ibv_ack_cq_events(cq,   2);
+        printf("test success!\n");
              return  0;
   } 

@@ -158,8 +158,14 @@ int main(int argc, char   *argv[ ])
 			send_wr.sg_list   = &sge;
 			send_wr.num_sge  = 1;
 			send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
+<<<<<<< HEAD
 			send_wr.wr.rdma.remote_addr = ntohl(server_pdata.buf_va);
 			if (ibv_post_send(cm_id->qp, &send_wr,  &bad_send_wr))
+=======
+            //FIXME: Here should be ntohll?
+			send_wr.wr.rdma.remote_addr = ntohll(server_pdata.buf_va);
+			if (ibv_post_send(cmid->qp, &send_wr,  &bad_send_wr))
+>>>>>>> 601d724 (a)
 					return 1;
 			sge.addr    = (uintptr_t) buf + sizeof (uint32_t);
 			sge.length  = sizeof (uint32_t);
