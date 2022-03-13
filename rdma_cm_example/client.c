@@ -29,7 +29,7 @@ struct pdata {
 int main(int argc, char   *argv[ ]) 
 { 
        struct pdata									server_pdata; 
-       struct rdma_event channel			*cm_channel; 
+       struct rdma_event_channel			*cm_channel; 
        struct rdma_cm_id							*cm_id; 
        struct rdma_cm_event					*event;  
        struct rdma_conn_param				conn_param = { };  
@@ -65,7 +65,7 @@ int main(int argc, char   *argv[ ])
 					return   1;
 
 			/* Resolve server address and route */
-			for (t = res; t; t = t->ai next) {
+			for (t = res; t; t = t->ai_next) {
 					err = rdma_resolve_addr(cm_id, NULL, t->ai_addr, RESOLVE_TIMEOUT_MS);
 					if (!err)
 							break;
@@ -108,10 +108,10 @@ int main(int argc, char   *argv[ ])
 			mr = ibv_reg_mr(pd, buf,2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE); 
 			if (!mr) 
 					return 1; 
-			qp_attr.cap.max.send_wr = 2; 
-			qp_attr.cap.max.send_sge = 1;                                                                            
-			qp_attr.cap.max.recv_wr = 1; 
-			qp_attr.cap.max.recv_sge = 1; 
+			qp_attr.cap.max_send_wr = 2; 
+			qp_attr.cap.max_send_sge = 1;                                                                            
+			qp_attr.cap.max_recv_wr = 1; 
+			qp_attr.cap.max_recv_sge = 1; 
 			qp_attr.send_cq            = cq;
 			qp_attr.recv_cq            = cq;
 			qp_attr.qp_type            = IBV_QPT_RC; 
@@ -154,7 +154,7 @@ int main(int argc, char   *argv[ ])
 			sge.length  = sizeof (uint32_t);
 			sge.lkey    =  mr->lkey;
 			send_wr.wr_id  = 1;
-			sendwr.opcode  = IBV_WR_RDMA_WRITE;
+			send_wr.opcode  = IBV_WR_RDMA_WRITE;
 			send_wr.sg_list   = &sge;
 			send_wr.num_sge  = 1;
 			send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
