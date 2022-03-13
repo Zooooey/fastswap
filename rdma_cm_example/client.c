@@ -109,16 +109,18 @@ int main(int argc, char *argv[])
         printf("rdma_resolve_addr failed!\n");
         return err;
     }*/
-    union my_address cli_addr;
-    union my_address srv_addr;
+    //union my_address cli_addr;
+    //union my_address srv_addr;
+	struct sockaddr_in cli_addr;
+	struct sockaddr_in srv_addr;
     char *cli_ip = argv[1];
     char *srv_ip = argv[2];
     long srv_port = strtol(argv[3], NULL, 10);
     //err = parse_sockaddr_from_string(&cli_addr, cli_ip);
-    cli_addr.addr_in.sin_addr.s_addr = inet_addr(cli_ip);
-	cli_addr.addr_in.sin_family = AF_INET;
-    srv_addr.addr_in.sin_addr.s_addr = inet_addr(srv_ip);
-	srv_addr.addr_in.sin_family = AF_INET;
+    cli_addr.sin_addr.s_addr = inet_addr(cli_ip);
+	cli_addr.sin_family = AF_INET;
+    srv_addr.sin_addr.s_addr = inet_addr(srv_ip);
+	srv_addr.sin_family = AF_INET;
     /*if (err) {
         printf("parse client addr %s failed\n", cli_ip);
         return err;
@@ -128,8 +130,8 @@ int main(int argc, char *argv[])
         printf("parse server addr %s failed\n", cli_ip);
         return err;
     }*/
-    srv_addr.addr_in.sin_port = htons(srv_port);
-    printf("server port input is %s, long value is %d, sin_port:%d\n",argv[3], srv_port, srv_addr.addr_in.sin_port);
+    srv_addr.sin_port = htons(srv_port);
+    printf("server port input is %s, long value is %d, sin_port:%d\n",argv[3], srv_port, srv_addr.sin_port);
     err  = rdma_resolve_addr(cm_id, &cli_addr, &srv_addr, RESOLVE_TIMEOUT_MS);
     if (err) {
         printf("rdma_resolve_addr failed, cli_ip:%s ,srv_ip:%s\n",cli_ip, srv_ip);
