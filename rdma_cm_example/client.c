@@ -17,18 +17,18 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include <rdma/rdma cma.h>
+#include <rdma/rdma_cma.h>
 enum   { 
-        RESOLVE TIMEOUT MS        = 5000, 
+        RESOLVE_TIMEOUT_MS        = 5000, 
 }; 
 struct pdata { 
-        uint64_t	buf va; 
-        uint32_t	buf rkey;
+        uint64_t	buf_va; 
+        uint32_t	buf_rkey;
 }; 
 
 int main(int argc, char   *argv[ ]) 
 { 
-       struct pdata									server pdata; 
+       struct pdata									server_pdata; 
        struct rdma_event channel			*cm_channel; 
        struct rdma_cm_id							*cm_id; 
        struct rdma_cm_event					*event;  
@@ -38,18 +38,18 @@ int main(int argc, char   *argv[ ])
        struct ibv_cq								*cq; 
        struct ibv_cq								*evt_cq; 
        struct ibv_mr								*mr; 
-       struct ibv_qp_init_attr				qp attr = { }; 
+       struct ibv_qp_init_attr				qp_attr = { }; 
        struct ibv_sge								sge; 
        struct ibv_send_wr						send_wr = { }; 
-       struct ibv_send_wr 						*bad send wr; 
-       struct ibv_recv_wr						recv wr = { }; 
-       struct ibv_recv_wr						*bad recv wr; 
+       struct ibv_send_wr 						*bad_send_wr; 
+       struct ibv_recv_wr						recv_wr = { }; 
+       struct ibv_recv_wr						*bad_recv_wr; 
        struct ibv_wc								wc; 
-       void													*cq context; 
+       void													*cq_context; 
        struct addrinfo								*res, *t; 
        struct addrinfo								hints =   { 
-       																			.ai_family    = AF INET, 
-       																			.ai_socktype  = SOCK STREAM 
+       																			.ai_family    = AF_INET, 
+       																			.ai_socktype  = SOCK_STREAM 
        														};  
 			int													n; 
 			uint32_t											*buf; 
@@ -92,7 +92,7 @@ int main(int argc, char   *argv[ ])
 			pd = ibv_alloc_pd(cm_id->verbs); 
 			if (!pd) 
 					return 1; 
-			comp chan = ibv_create_comp_channel(cm_id->verbs);              
+			comp_chan = ibv_create_comp_channel(cm_id->verbs);              
 			if (!comp_chan) 
 					return 1; 
 			cq = ibv_create_cq(cm_id->verbs, 2,NULL, comp_chan, 0); 
@@ -105,13 +105,13 @@ int main(int argc, char   *argv[ ])
 			buf = calloc(2, sizeof (uint32_t)); 
 			if (!buf) 
 					return 1; 
-			mr = ibv_reg_mr(pd, buf,2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_ WRITE); 
+			mr = ibv_reg_mr(pd, buf,2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE); 
 			if (!mr) 
 					return 1; 
-			qp_attr.cap.max  send_wr = 2; 
-			qp_attr.cap.max  send_sge = 1;                                                                            
-			qp_attr.cap.max  recv_wr = 1; 
-			qp_attr.cap.max  recv_sge = 1; 
+			qp_attr.cap.max.send_wr = 2; 
+			qp_attr.cap.max.send_sge = 1;                                                                            
+			qp_attr.cap.max.recv_wr = 1; 
+			qp_attr.cap.max.recv_sge = 1; 
 			qp_attr.send_cq            = cq;
 			qp_attr.recv_cq            = cq;
 			qp_attr.qp_type            = IBV_QPT_RC; 
@@ -130,12 +130,12 @@ int main(int argc, char   *argv[ ])
 					return err;
 			if (event->event != RDMA_CM_EVENT_ESTABLISHED)
 					return 1;
-			memcpy(&server_pdata, event->param.conn.private_data, sizeof server_pdata);
+			memcpy(&server_pdata, event->param.conn.private_data, sizeof(server_pdata));
 			rdma_ack_cm_event(event);
 
 			/* Prepost receive */ 
 			sge.addr    = (uintptr_t) buf; 
-			sge.length  = sizeof (uint32_t); 
+			sge.length  = sizeof(uint32_t); 
 			sge.lkey    = mr->lkey; 
 			recv_wr.wr_id = 0;                
 			recv_wr.sg_list = &sge;
@@ -155,7 +155,7 @@ int main(int argc, char   *argv[ ])
 			sge.lkey    =  mr->lkey;
 			send_wr.wr_id  = 1;
 			sendwr.opcode  = IBV_WR_RDMA_WRITE;
-			send _wr.sg_list   = &sge;
+			send_wr.sg_list   = &sge;
 			send_wr.num_sge  = 1;
 			send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
 			send_wr.wr.rdma.remote_addr = ntohll(server_pdata.buf_va);
