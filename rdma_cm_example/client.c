@@ -37,9 +37,9 @@ union my_address
 };
 
 
-static int parse_sockaddr_from_string(struct sockaddr_in *saddr, char *ip)
+/*static int parse_sockaddr_from_string(struct sockaddr_in *saddr, char *ip)
 {
-  u8 *addr = (u8 *)&saddr->sin_addr.s_addr;
+  uint8_t *addr = (uint8_t *)&saddr->sin_addr.s_addr;
   size_t buflen = strlen(ip);
 
   if (buflen > INET_ADDRSTRLEN)
@@ -48,7 +48,7 @@ static int parse_sockaddr_from_string(struct sockaddr_in *saddr, char *ip)
     return -EINVAL;
   saddr->sin_family = AF_INET;
   return 0;
-}
+}*/
 
 int main(int argc, char *argv[])
 {
@@ -114,8 +114,12 @@ int main(int argc, char *argv[])
     char *cli_ip = argv[1];
     char *srv_ip = argv[2];
     long srv_port = strtol(argv[3], NULL, 10);
-    err = parse_sockaddr_from_string(&cli_addr, cli_ip);
-    if (err) {
+    //err = parse_sockaddr_from_string(&cli_addr, cli_ip);
+    cli_addr.addr_in.sin_addr.s_addr = inet_addr(cli_ip);
+	cli_addr.addr_in.sin_family = AF_INET;
+    srv_addr.addr_in.sin_addr.s_addr = inet_addr(srv_ip);
+	srv_addr.addr_in.sin_family = AF_INET;
+    /*if (err) {
         printf("parse client addr %s failed\n", cli_ip);
         return err;
     }
@@ -123,12 +127,13 @@ int main(int argc, char *argv[])
     if (err) {
         printf("parse server addr %s failed\n", cli_ip);
         return err;
-    }
+    }*/
     srv_addr.addr_in.sin_port = htons(srv_port);
-    printf("server port input is %s, long value is %d, sin_port:%d\n",argv[3], srv_port, srv_addr.addr_in.sin_port)；
+    printf("server port input is %s, long value is %d, sin_port:%d\n",argv[3], srv_port, srv_addr.addr_in.sin_port);
     err  = rdma_resolve_addr(cm_id, &cli_addr, &srv_addr, RESOLVE_TIMEOUT_MS);
     if (err) {
-        printf("rdma_resolve_addr failed: %d\n", ret);
+        printf("rdma_resolve_addr failed, cli_ip:%s ,srv_ip:%s\n",cli_ip, srv_ip);
+		printf("errno: %d, error msg: %s\n", errno, strerror(errno));	
         return err;
     }
     err = rdma_get_cm_event(cm_channel, &event);
