@@ -222,8 +222,8 @@ int main(int argc, char *argv[])
     send_wr.num_sge = 1;
     send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
     // FIXME: Here should be ntohll?
-    send_wr.wr.rdma.remote_addr = ntohll(server_pdata.buf_va);
-    if (ibv_post_send(cmid->qp, &send_wr, &bad_send_wr))
+    send_wr.wr.rdma.remote_addr = ntohl(server_pdata.buf_va);
+    if (ibv_post_send(cm_id->qp, &send_wr, &bad_send_wr))
     {
         printf("ibv_post_send failed!\n");
         return 1;
