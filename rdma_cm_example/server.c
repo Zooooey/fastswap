@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <arpa/inet.h>
-#include <rdma/rdma cma.h>
+#include <rdma/rdma_cma.h>
 enum   {
         RESOLVE_TIMEOUT_MS         = 5000, 
 }; 
@@ -26,17 +26,17 @@ int main(int argc, char   *argv[ ])
         struct rdma_event_channel			*cm_channel; 
         struct rdma_cm_id						*listen_id; 
         struct rdma_cm_id						*cm_id; 
-        struct cm_event							*event; 
+        struct rdma_cm_event							*event; 
         struct rdma_conn_param				conn_param = { }; 
         struct ibv_pd								*pd; 
         struct ibv_comp_channel				*comp_chan; 
         struct ibv_cq								*cq;  
         struct ibv_cq								*evt_cq; 
         struct ibv_mr								*mr; 
-        struct qp_init_attr					qp_attr = { }; 
+        struct ibv_qp_init_attr					qp_attr = { }; 
         struct ibv_sge								sge; 
         struct ibv_send_wr						send_wr = { }; 
-        struct ibv_send_wr						*bad_send_wr; 
+        struct ibv__end_wr						*bad_send_wr; 
         struct ibv_recv_wr						recv_wr = { }; 
         struct recv_wr								*bad_recv_wr; 
         struct ibv_wc								wc; 
@@ -55,7 +55,6 @@ int main(int argc, char   *argv[ ])
         sin.sin_family = AF_INET;
         sin.sin_port     = htons(20079);
         sin.sin_addr.s_addr = INADDR_ANY;
-                                                         7
          /* Bind to local port and listen for connection request */
         err = rdma_bind_addr(listen_id, (struct sockaddr   *) &sin);
         if (err)
@@ -113,7 +112,8 @@ int main(int argc, char   *argv[ ])
        recv_wr.num_sge    = 1;
        if (ibv_post_recv(cm_id->qp, &recv_wr,  &bad_recv_wr))
              return 1;
-       rep_pdata.buf_va = htonll((uintptr_t) buf);
+		//FIXME:should be htonl?
+       rep_pdata.buf_va = htonl((uintptr_t) buf);
        rep_pdata.buf_rkey = htonl(mr->rkey);
        conn_param.responder_resources = 1;
        conn_param.private_data          = &rep_pdata;
@@ -150,7 +150,7 @@ int main(int argc, char   *argv[ ])
        send_wr.send_flags = IBV_SEND_SIGNALED; 
        send_wr.sg_list    = &sge;
        send_wr.num_sge = 1;
-       if (ibv_post_send(cm id->qp,     &send_wr, &bad_send_wr))
+       if (ibv_post_send(cm_id->qp, &send_wr, &bad_send_wr))
              return 1;
 
         /* Wait for send completion */
@@ -163,5 +163,3 @@ int main(int argc, char   *argv[ ])
         ibv_ack_cq_events(cq,   2);
              return  0;
   } 
-Parent topic: An example using RDMA_CM module
-[ Feedback ]
