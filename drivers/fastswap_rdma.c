@@ -11,6 +11,10 @@ static int numcpus;
 static char serverip[INET_ADDRSTRLEN];
 static char clientip[INET_ADDRSTRLEN];
 static struct kmem_cache *req_cache;
+static atomic_t read_test_done;
+static atomic_t read_async_test_done; 
+static atomic_t write_test_done; 
+
 module_param_named(sport, serverport, int, 0644);
 module_param_named(nq, numqueues, int, 0644);
 module_param_string(sip, serverip, INET_ADDRSTRLEN, 0644);
@@ -343,6 +347,7 @@ static void sswap_rdma_free_queue(struct rdma_queue *q)
 static int sswap_rdma_init_queues(struct sswap_rdma_ctrl *ctrl)
 {
   int ret, i;
+  pr_info("numqueues: %d\n", numqueues);
   for (i = 0; i < numqueues; ++i) {
     ret = sswap_rdma_init_queue(ctrl, i);
     if (ret) {
@@ -365,6 +370,7 @@ out_free_queues:
 static void sswap_rdma_stopandfree_queues(struct sswap_rdma_ctrl *ctrl)
 {
   int i;
+  pr_info("numqueues: %d\n", numqueues);
   for (i = 0; i < numqueues; ++i) {
     sswap_rdma_stop_queue(&ctrl->queues[i]);
     sswap_rdma_free_queue(&ctrl->queues[i]);
@@ -399,6 +405,7 @@ static int sswap_rdma_create_ctrl(struct sswap_rdma_ctrl **c)
   }
   ctrl = *c;
 
+  pr_info("numqueues: %d\n", numqueues);
   ctrl->queues = kzalloc(sizeof(struct rdma_queue) * numqueues, GFP_KERNEL);
   ret = sswap_rdma_parse_ipaddr(&(ctrl->addr_in), serverip);
   if (ret) {
@@ -430,6 +437,7 @@ static void __exit sswap_rdma_cleanup_module(void)
 
 static void sswap_rdma_write_done(struct ib_cq *cq, struct ib_wc *wc)
 {
+  pr_info("sswap_rdma_write_done!\n");
   struct rdma_req *req =
     container_of(wc->wr_cqe, struct rdma_req, cqe);
   struct rdma_queue *q = cq->cq_context;
@@ -447,6 +455,7 @@ static void sswap_rdma_write_done(struct ib_cq *cq, struct ib_wc *wc)
 
 static void sswap_rdma_read_done(struct ib_cq *cq, struct ib_wc *wc)
 {
+  pr_info("sswap_rdma_read_done!\n");
   struct rdma_req *req =
     container_of(wc->wr_cqe, struct rdma_req, cqe);
   struct rdma_queue *q = cq->cq_context;
@@ -467,6 +476,7 @@ static void sswap_rdma_read_done(struct ib_cq *cq, struct ib_wc *wc)
 inline static int sswap_rdma_post_rdma(struct rdma_queue *q, struct rdma_req *qe,
   struct ib_sge *sge, u64 roffset, enum ib_wr_opcode op)
 {
+  pr_info("start: %s\n", __FUNCTION__);
   struct ib_send_wr *bad_wr;
   struct ib_rdma_wr rdma_wr = {};
   int ret;
@@ -695,6 +705,7 @@ static inline int begin_read(struct rdma_queue *q, struct page *page,
 
 int sswap_rdma_write(struct page *page, u64 roffset)
 {
+  pr_info("start: %s\n", __FUNCTION__);
   int ret;
   struct rdma_queue *q;
 
@@ -742,6 +753,7 @@ out:
  * posts an RDMA read on this cpu's qp */
 int sswap_rdma_read_async(struct page *page, u64 roffset)
 {
+  pr_info("start: %s\n", __FUNCTION__);
   struct rdma_queue *q;
   int ret;
 
@@ -757,6 +769,7 @@ EXPORT_SYMBOL(sswap_rdma_read_async);
 
 int sswap_rdma_read_sync(struct page *page, u64 roffset)
 {
+  pr_info("start: %s\n", __FUNCTION__);
   struct rdma_queue *q;
   int ret;
 
@@ -772,6 +785,7 @@ EXPORT_SYMBOL(sswap_rdma_read_sync);
 
 int sswap_rdma_poll_load(int cpu)
 {
+  pr_info("start: %s\n", __FUNCTION__);
   struct rdma_queue *q = sswap_rdma_get_queue(cpu, QP_READ_SYNC);
   return drain_queue(q);
 }
@@ -781,6 +795,7 @@ EXPORT_SYMBOL(sswap_rdma_poll_load);
 inline enum qp_type get_queue_type(unsigned int idx)
 {
   // numcpus = 8
+  //idx = idx % numqueues;
   if (idx < numcpus)
     return QP_READ_SYNC;
   else if (idx < numcpus * 2)
@@ -797,6 +812,7 @@ inline struct rdma_queue *sswap_rdma_get_queue(unsigned int cpuid,
 {
   BUG_ON(gctrl == NULL);
 
+  //cpuid = cpuid % numqueues;
   switch (type) {
     case QP_READ_SYNC:
       return &gctrl->queues[cpuid];
@@ -817,7 +833,10 @@ static int __init sswap_rdma_init_module(void)
   pr_info("* RDMA BACKEND *");
 
   numcpus = num_online_cpus();
+  //numcpus = 8;
+  pr_info("num cpus is :%d\n", numcpus);
   numqueues = numcpus * 3;
+  pr_info("num queues is :%d\n", numqueues);
 
   req_cache = kmem_cache_create("sswap_req_cache", sizeof(struct rdma_req), 0,
                       SLAB_TEMPORARY | SLAB_HWCACHE_ALIGN, NULL);
@@ -843,6 +862,66 @@ static int __init sswap_rdma_init_module(void)
   }
 
   pr_info("ctrl is ready for reqs\n");
+  pr_info("try alloc a page to test\n");
+  atomic_set(&read_test_done, 0);
+  struct page* test_page = alloc_page(GFP_ATOMIC);
+  //pr_info("try to read_sync first page from remote server\n");
+  struct rdma_queue *q = sswap_rdma_get_queue(smp_processor_id(), QP_READ_SYNC); 
+  /*if(atomic_read(&q->pending)!=0){
+	pr_err("q pending value is not 0 before send rdma!\n");
+	return -ENODEV;
+  }
+  int r = sswap_rdma_read_sync(test_page,0);
+  if (r!=0){
+		  pr_err("send read_sync request to farmemserver failed!\n");
+    	  return -ENODEV;
+  }  
+  int count = 0;
+  while(atomic_read(&q->pending)>0){
+		  ndelay(9000);
+		  if(count % 50000 == 0)
+				  pr_info("waiting read sync request finished.....\n");
+		  count++;
+		  if(count>=1000000){
+				  pr_err("send read_sync request to farmemserver failed!\n");
+				  return -ENODEV;
+		  }
+  }*/
+
+
+  /*pr_info("try to read_async first page from remote server\n");
+  r = sswap_rdma_read_async(test_page,0);
+  if (r!=0){
+		  pr_err("send read_async request to farmemserver failed!\n");
+    	  return -ENODEV;
+  }
+  q = sswap_rdma_get_queue(smp_processor_id(), QP_READ_ASYNC); 
+  while(atomic_read(&q->pending)>0){
+   ndelay(1000);
+   pr_info("waiting read async request finished.....\n");
+  }*/
+
+
+  pr_info("try to write page from remote server\n");
+  int r = sswap_rdma_write(test_page,0);
+  if (r!=0){
+		  pr_err("send write request to farmemserver failed!\n");
+    	  return -ENODEV;
+  }
+  q = sswap_rdma_get_queue(smp_processor_id(), QP_WRITE_SYNC); 
+  int count = 0;
+  while(atomic_read(&q->pending)>0){
+		  ndelay(9000);
+		  if(count % 50000 == 0)
+				  pr_info("waiting write request finished.....\n");
+		  count++;
+		  if(count>=1000000){
+				  pr_err("send write request to farmemserver failed!\n");
+				  return -ENODEV;
+		  }
+  }
+  pr_info("all test completed!\n");
+
   return 0;
 }
 
