@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <rdma/rdma_cma.h>
+#include <unistd.h>
+
 enum
 {
     RESOLVE_TIMEOUT_MS = 5000,
@@ -125,9 +127,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    buf = 3072;
-
-    printf("The num waiting to client retrieving is %d\n",buf);
 
     mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t),
                     IBV_ACCESS_LOCAL_WRITE |
@@ -139,10 +138,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    qp_attr.cap.max_send_wr = 1;
-    qp_attr.cap.max_send_sge = 1;
-    qp_attr.cap.max_recv_wr = 1;
-    qp_attr.cap.max_recv_sge = 1;
+
+    printf("The original buf[0] s %d\n",buf[0]);
+    qp_attr.cap.max_send_wr = 10;
+    qp_attr.cap.max_send_sge = 10;
+    qp_attr.cap.max_recv_wr = 10;
+    qp_attr.cap.max_recv_sge = 10;
     qp_attr.send_cq = cq;
     qp_attr.recv_cq = cq;
     qp_attr.qp_type = IBV_QPT_RC;
@@ -183,12 +184,13 @@ int main(int argc, char *argv[])
     }
 
     rdma_ack_cm_event(event);
-
     
-    printf("Wating the client to change the num....");
-    while(buf != 0){
+    printf("Wating the client to change the num....\n");
+    while(1){
+	sleep(1);
+    	printf("The number is:%d\n",buf[0]);
     }
-
+    printf("The number is:%d\n",buf[0]);
     printf("test success!\n");
     return 0;
 }

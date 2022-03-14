@@ -12,11 +12,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-
+#include <rdma/ib_user_verbs.h>
 #include <rdma/rdma_cma.h>
 enum
 {
@@ -157,7 +158,7 @@ int main(int argc, char *argv[])
         printf("calloc failed!\n");
         return 1;
     }
-    mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE);
+    mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE|IBV_ACCESS_REMOTE_READ|IBV_ACCESS_REMOTE_WRITE);
     if (!mr)
     {
         printf("ibv_reg_mr failed!\n");
@@ -203,17 +204,43 @@ int main(int argc, char *argv[])
 
 
     /* Write/send two integers to be added */
-    buf[0] = strtoul(argv[2], NULL, 0);
-    buf[1] = strtoul(argv[3], NULL, 0);
-    printf("%d + %d = ", buf[0], buf[1]);
-    buf[0] = htonl(buf[0]);
-    buf[1] = htonl(buf[1]);
-
+    //buf[0] = strtoul(argv[2], NULL, 0);
+    //buf[1] = strtoul(argv[3], NULL, 0);
+    buf[0] = 2;
+	buf[1] = 0;
+	//buf[1] = 4;
+	//printf("%d + %d = \n", buf[0], buf[1]);
+    //buf[0] = htonl(buf[0]);
+    //buf[1] = htonl(buf[1]);
+	
+	printf("before write buf[0]:%d buf[1]:%d\n",buf[0],buf[1]);
+	/*RDMA_WRITE*/
     sge.addr = (uintptr_t)buf;
     sge.length = sizeof(uint32_t);
     sge.lkey = mr->lkey;
+    send_wr.wr_id = 0;
+    send_wr.opcode = IBV_WR_RDMA_WRITE;
+	//send_wr.send_flags = IBV_SEND_SIGNALED;
+    send_wr.sg_list = &sge;
+    send_wr.num_sge = 1;
+    send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
+    // FIXME: Here should be ntohll?
+    send_wr.wr.rdma.remote_addr = ntohl(server_pdata.buf_va);
+    if (ibv_post_send(cm_id->qp, &send_wr, &bad_send_wr))
+    {
+    	printf("ibv_post_send failed!\n");
+    	return 1;
+    }
+	printf("after send rdma_write buf[0]:%d buf[1]:%d\n",buf[0],buf[1]);
+	
+	/*RDMA_READ*/
+    sge.addr = (uintptr_t)buf + sizeof(uint32_t);
+    sge.length = sizeof(uint32_t);
+    sge.lkey = mr->lkey;
     send_wr.wr_id = 1;
+	//send_wr.wr.send_flags = IBV_SEND_SIGNALED;
     send_wr.opcode = IBV_WR_RDMA_READ;
+	//send_wr.send_flags = IBV_SEND_SIGNALED;
     send_wr.sg_list = &sge;
     send_wr.num_sge = 1;
     send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
@@ -224,6 +251,12 @@ int main(int argc, char *argv[])
         printf("ibv_post_send failed!\n");
         return 1;
     }
+	printf("after send rdam_read buf[0]:%d buf[1]:%d\n",buf[0],buf[1]);
+	while(1){
+			sleep(1);
+			printf("now! buf[0]:%d buf[1]:%d\n",buf[0],buf[1]);
+	}
+	//printf("The number is %d\n",ntohl(buf[1]));
     /*sge.addr = (uintptr_t)buf + sizeof(uint32_t);
     sge.length = sizeof(uint32_t);
     sge.lkey = mr->lkey;
@@ -239,35 +272,45 @@ int main(int argc, char *argv[])
     }*/
 
     /* Wait for receive completion */
-    // while (1)
-    // {
-        if (ibv_get_cq_event(comp_chan, &evt_cq, &cq_context))
-        {
-            printf("ibv_get_cq_event failed!\n");
-            return 1;
-        }
-        if (ibv_req_notify_cq(cq, 0))
-        {
-            printf("ibv_req_notify_cq failed!\n");
-            return 1;
-        }
-        if (ibv_poll_cq(cq, 1, &wc) != 1)
-        {
-            printf("ibv_poll_cq failed!\n");
-            return 1;
-        }
-        if (wc.status != IBV_WC_SUCCESS)
-        {
-            printf("wc.status != IBV_WC_SUCCESS failed!\n");
-            return 1;
-        }
-        if (wc.wr_id == 0)
-        {
-            printf("%d\n", ntohl(buf[0]));
-            return 0;
-        }
-    // }
+	/*while (1)
+	{
+			sleep(1);
 
+			if (ibv_get_cq_event(comp_chan, &evt_cq, &cq_context))
+			{
+					printf("ibv_get_cq_event failed!\n");
+					return 1;
+			}else {
+					printf("ibv_get_cq_event success!\n");
+			}
+			if (ibv_req_notify_cq(cq, 0))
+			{
+					printf("ibv_req_notify_cq failed!\n");
+					return 1;
+			}else {
+
+					printf("ibv_req_notify_cq success\n");
+			}
+			if (ibv_poll_cq(cq, 1, &wc) != 1)
+			{
+					printf("ibv_poll_cq failed!\n");
+					return 1;
+			}else {
+					printf("poll success! wr_id is %d \n",wc.wr_id);
+			}
+			if (wc.status != IBV_WC_SUCCESS)
+			{
+					printf("wc.status != IBV_WC_SUCCESS failed!\n");
+					return 1;
+			}else {
+					printf("poll success! wr_id is %d buf0:%d buf1:%d\n",wc.wr_id,buf[0],buf[1])	;
+			}
+			/*if (wc.wr_id == 0)
+			{
+					printf("%d\n", ntohl(buf[0]));
+					return 0;
+			}*/
+	//}*/
     // printf(" failed!\n");
     // return 0;
     

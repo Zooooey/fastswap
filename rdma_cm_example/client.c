@@ -151,19 +151,19 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    buf = calloc(2, sizeof(uint32_t));
+    buf = calloc(3, sizeof(uint32_t));
     if (!buf)
     {
         printf("calloc failed!\n");
         return 1;
     }
-    mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE);
+    mr = ibv_reg_mr(pd, buf, 3 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE);
     if (!mr)
     {
         printf("ibv_reg_mr failed!\n");
         return 1;
     }
-    qp_attr.cap.max_send_wr = 2;
+    qp_attr.cap.max_send_wr = 3;
     qp_attr.cap.max_send_sge = 1;
     qp_attr.cap.max_recv_wr = 1;
     qp_attr.cap.max_recv_sge = 1;
@@ -214,13 +214,18 @@ int main(int argc, char *argv[])
     }
 
     /* Write/send two integers to be added */
-    buf[0] = strtoul(argv[2], NULL, 0);
-    buf[1] = strtoul(argv[3], NULL, 0);
-    printf("%d + %d = ", buf[0], buf[1]);
+    //buf[0] = strtoul(argv[2], NULL, 0);
+    //buf[1] = strtoul(argv[3], NULL, 0);
+    buf[0] = 3;
+	buf[1] = 4;
+	buf[2] = 0;
+	printf("%d + %d = \n", buf[0], buf[1]);
     buf[0] = htonl(buf[0]);
     buf[1] = htonl(buf[1]);
 
-    sge.addr = (uintptr_t)buf;
+	
+	/*RDMA_WRITE*/
+	sge.addr = (uintptr_t)buf;
     sge.length = sizeof(uint32_t);
     sge.lkey = mr->lkey;
     send_wr.wr_id = 1;
@@ -232,10 +237,13 @@ int main(int argc, char *argv[])
     send_wr.wr.rdma.remote_addr = ntohl(server_pdata.buf_va);
     if (ibv_post_send(cm_id->qp, &send_wr, &bad_send_wr))
     {
-        printf("ibv_post_send failed!\n");
-        return 1;
+    	printf("ibv_post_send failed!\n");
+    	return 1;
     }
-    sge.addr = (uintptr_t)buf + sizeof(uint32_t);
+    
+    
+	/*RDMA_SEND*/
+	sge.addr = (uintptr_t)buf + sizeof(uint32_t);
     sge.length = sizeof(uint32_t);
     sge.lkey = mr->lkey;
     send_wr.wr_id = 2;
@@ -248,7 +256,24 @@ int main(int argc, char *argv[])
         printf("ibv_post_send failed!\n");
         return 1;
     }
-
+	
+	/*RDMA_READ*/
+    sge.addr = (uintptr_t)buf + 2*sizeof(uint32_t);
+    sge.length = sizeof(uint32_t);
+    sge.lkey = mr->lkey;
+    send_wr.wr_id = 1;
+    send_wr.opcode = IBV_WR_RDMA_READ;
+    send_wr.send_flags = IBV_SEND_SIGNALED;
+    send_wr.sg_list = &sge;
+    send_wr.num_sge = 1;
+    send_wr.wr.rdma.rkey = ntohl(server_pdata.buf_rkey);
+    //FIXME: Here should be ntohll?
+    send_wr.wr.rdma.remote_addr = ntohl(server_pdata.buf_va);
+    if (ibv_post_send(cm_id->qp, &send_wr, &bad_send_wr))
+    {
+    	printf("ibv_post_send failed!\n");
+    	return 1;
+    }
     /* Wait for receive completion */
     while (1)
     {
@@ -266,7 +291,9 @@ int main(int argc, char *argv[])
         {
             printf("ibv_poll_cq failed!\n");
             return 1;
-        }
+        }else {
+			printf("poll succee! wr_id is %d\n",wc.wr_id);
+		}
         if (wc.status != IBV_WC_SUCCESS)
         {
             printf("wc.status != IBV_WC_SUCCESS failed!\n");
@@ -274,9 +301,9 @@ int main(int argc, char *argv[])
         }
         if (wc.wr_id == 0)
         {
-            printf("%d\n", ntohl(buf[0]));
+            printf("%d\n", ntohl(buf[2]));
 
-            return 0;
+            //return 0;
         }
     }
 
