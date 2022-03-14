@@ -437,7 +437,7 @@ static void __exit sswap_rdma_cleanup_module(void)
 
 static void sswap_rdma_write_done(struct ib_cq *cq, struct ib_wc *wc)
 {
-  pr_info("sswap_rdma_write_done!\n");
+  pr_info("sswap_rdma_write_done! device:%s\n",cq->device->name);
   struct rdma_req *req =
     container_of(wc->wr_cqe, struct rdma_req, cqe);
   struct rdma_queue *q = cq->cq_context;
@@ -526,9 +526,10 @@ static void sswap_rdma_recv_remotemr_done(struct ib_cq *cq, struct ib_wc *wc)
   }
   ib_dma_unmap_single(ibdev, qe->dma, sizeof(struct sswap_rdma_memregion),
 		      DMA_FROM_DEVICE);
-  pr_info("servermr baseaddr=%llx, key=%u\n", ctrl->servermr.baseaddr,
+  pr_info("my_device:%s servermr baseaddr=%llx, key=%u\n",cq->device->name, ctrl->servermr.baseaddr,
 	  ctrl->servermr.key);
   complete_all(&qe->done);
+
 }
 
 static int sswap_rdma_post_recv(struct rdma_queue *q, struct rdma_req *qe,
@@ -867,11 +868,11 @@ static int __init sswap_rdma_init_module(void)
   }
 
   pr_info("ctrl is ready for reqs\n");
-  
+  int i;
   for (i = 0; i < numqueues; ++i) {
     struct ib_qp_attr qp_attr;
     struct ib_qp_init_attr qp_init_attr;
-    ret = ib_query_qp(gctrl->queues[i]->qp, &qp_attr, IB_QP_STATE|IB_QP_CUR_STATE, &qp_init_attr);
+    ret = ib_query_qp(&gctrl->queues[i].qp, &qp_attr, IB_QP_STATE|IB_QP_CUR_STATE, &qp_init_attr);
     if (ret) {
       pr_err("failed to ib_query_qp for queue: %d\n", i);
       return -ENODEV;
