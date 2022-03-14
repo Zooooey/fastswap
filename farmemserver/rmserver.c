@@ -212,9 +212,9 @@ int on_connect_request(struct rdma_cm_id *id, struct rdma_conn_param *param)
   TEST_NZ(ibv_query_device(dev->verbs, &attrs));
 
   printf("attrs: max_qp=%d, max_qp_wr=%d, max_cq=%d max_cqe=%d \
-          max_qp_rd_atom=%d, max_qp_init_rd_atom=%d\n", attrs.max_qp,
+          max_qp_rd_atom=%d, max_qp_init_rd_atom=%d, qp_state:%d, cur_qp_state\n", attrs.max_qp,
           attrs.max_qp_wr, attrs.max_cq, attrs.max_cqe,
-          attrs.max_qp_rd_atom, attrs.max_qp_init_rd_atom);
+          attrs.max_qp_rd_atom, attrs.max_qp_init_rd_atom, attrs.qp_state, attrs.cur_qp_state);
 
   printf("ctrl attrs: initiator_depth=%d responder_resources=%d\n",
       param->initiator_depth, param->responder_resources);

@@ -125,9 +125,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    buf = 3072;
-
-    printf("The num waiting to client retrieving is %d\n",buf);
+    
 
     mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t),
                     IBV_ACCESS_LOCAL_WRITE |
@@ -138,6 +136,8 @@ int main(int argc, char *argv[])
         printf("ibv_reg_mr failed\n");
         return 1;
     }
+    buf = 3072;
+    printf("The num waiting to client retrieving is %d\n",buf);
 
     qp_attr.cap.max_send_wr = 1;
     qp_attr.cap.max_send_sge = 1;

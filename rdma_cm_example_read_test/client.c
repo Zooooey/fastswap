@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
         printf("calloc failed!\n");
         return 1;
     }
-    mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE);
+    mr = ibv_reg_mr(pd, buf, 2 * sizeof(uint32_t), IBV_ACCESS_LOCAL_WRITE|IBV_ACCESS_REMOTE_READ|IBV_ACCESS_REMOTE_);
     if (!mr)
     {
         printf("ibv_reg_mr failed!\n");
@@ -270,5 +270,5 @@ int main(int argc, char *argv[])
 
     // printf(" failed!\n");
     // return 0;
-    
+
 }
