@@ -95,6 +95,18 @@ int main(int argc, char **argv)
   }
 
   printf("done connecting all queues\n");
+  printf("check all qp ready....")
+  for (unsigned int i = 0; i < NUM_QUEUES; ++i) {
+    struct queue *q = &gctrl->queues[i];
+    struct ibv_qp_attr attr;
+    struct ibv_qp_init_attr init_attr;
+    int r = ibv_query_qp(q->qp, &attr, IBV_QP_STATE|IBV_QP_CUR_STATE, &init_attr );
+    if(r!=0){
+      printf("ibv_query_qp for queue %d failed! msg:%s\n",i, strerror(errno));
+      return;
+    }
+    printf("for the qp %d, qp_state is %d, cur_qp_state is %d\n", i, attr.qp_state, attr.cur_qp_state);
+  }
 
   // handle disconnects, etc.
   while (rdma_get_cm_event(ec, &event) == 0) {
@@ -212,9 +224,9 @@ int on_connect_request(struct rdma_cm_id *id, struct rdma_conn_param *param)
   TEST_NZ(ibv_query_device(dev->verbs, &attrs));
 
   printf("attrs: max_qp=%d, max_qp_wr=%d, max_cq=%d max_cqe=%d \
-          max_qp_rd_atom=%d, max_qp_init_rd_atom=%d, qp_state:%d, cur_qp_state\n", attrs.max_qp,
+          max_qp_rd_atom=%d, max_qp_init_rd_atom=%d\n", attrs.max_qp,
           attrs.max_qp_wr, attrs.max_cq, attrs.max_cqe,
-          attrs.max_qp_rd_atom, attrs.max_qp_init_rd_atom, attrs.qp_state, attrs.cur_qp_state);
+          attrs.max_qp_rd_atom, attrs.max_qp_init_rd_atom);
 
   printf("ctrl attrs: initiator_depth=%d responder_resources=%d\n",
       param->initiator_depth, param->responder_resources);
