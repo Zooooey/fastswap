@@ -95,7 +95,7 @@ int main(int argc, char **argv)
   }
 
   printf("done connecting all queues\n");
-  printf("check all qp ready....")
+  printf("check all qp ready....");
   for (unsigned int i = 0; i < NUM_QUEUES; ++i) {
     struct queue *q = &gctrl->queues[i];
     struct ibv_qp_attr attr;
@@ -103,9 +103,9 @@ int main(int argc, char **argv)
     int r = ibv_query_qp(q->qp, &attr, IBV_QP_STATE|IBV_QP_CUR_STATE, &init_attr );
     if(r!=0){
       printf("ibv_query_qp for queue %d failed! msg:%s\n",i, strerror(errno));
-      return;
+      return 1;
     }
-    printf("for the qp %d, qp_state is %d, cur_qp_state is %d\n", i, attr.qp_state, attr.cur_qp_state);
+    printf("for the qp %d, qp_state is %d, cur_qp_state is %d, init_attr.sq_sig_all:%d\n", i, attr.qp_state, attr.cur_qp_state,init_attr.sq_sig_all);
   }
 
   // handle disconnects, etc.

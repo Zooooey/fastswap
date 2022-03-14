@@ -862,6 +862,18 @@ static int __init sswap_rdma_init_module(void)
   }
 
   pr_info("ctrl is ready for reqs\n");
+  
+  for (i = 0; i < numqueues; ++i) {
+    struct ib_qp_attr qp_attr;
+    struct ib_qp_init_attr qp_init_attr;
+    ret = ib_query_qp(&gctrl->queues[i]->qp, &qp_attr, IB_QP_STATE|IB_QP_CUR_STATE, &qp_init_attr);
+    if (ret) {
+      pr_err("failed to ib_query_qp for queue: %d\n", i);
+      return -ENODEV;
+    }
+    pr_info("queue %d: qp_state:%d, cur_qp_state:%d\n", i, qp_attr.qp_state, qp_attr.cur_qp_state);
+  }
+
   pr_info("try alloc a page to test\n");
   atomic_set(&read_test_done, 0);
   struct page* test_page = alloc_page(GFP_ATOMIC);
