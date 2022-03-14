@@ -504,6 +504,11 @@ inline static int sswap_rdma_post_rdma(struct rdma_queue *q, struct rdma_req *qe
     pr_err("ib_post_send failed: %d\n", ret);
   }
 
+  struct ib_wc wc;
+  while(0 == ib_poll_cq(q->qp, 1, &wc));
+  pr_info("wc.status after send RDMA_WRITE is %d\n",wc.status);
+  
+
   return ret;
 }
 
@@ -866,7 +871,7 @@ static int __init sswap_rdma_init_module(void)
   for (i = 0; i < numqueues; ++i) {
     struct ib_qp_attr qp_attr;
     struct ib_qp_init_attr qp_init_attr;
-    ret = ib_query_qp(&gctrl->queues[i]->qp, &qp_attr, IB_QP_STATE|IB_QP_CUR_STATE, &qp_init_attr);
+    ret = ib_query_qp(gctrl->queues[i]->qp, &qp_attr, IB_QP_STATE|IB_QP_CUR_STATE, &qp_init_attr);
     if (ret) {
       pr_err("failed to ib_query_qp for queue: %d\n", i);
       return -ENODEV;
